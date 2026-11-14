@@ -16,11 +16,11 @@ URL = (
 
 # The full 721 x 1152 field is slow to pull from OPeNDAP. Step 3 keeps the
 # image detailed enough for the canvas while cutting the transfer by 9x.
-DEFAULT_STEP = 3
+DEFAULT_STEP = 8
 MAX_STEP = 8
 
 # how long until a cached entry expires (technically, the data doesnt get automatically removed after this time, but it will be treated as expired)
-CACHE_TTL_SECONDS = 5 * 60
+CACHE_TTL_SECONDS = 30 * 60 # 30 minutes
 MAX_CACHE_ENTRIES = 32 # how many entries until we start removing the oldest entry
 
 _cache: dict[tuple, tuple[float, dict]] = {}
@@ -113,6 +113,10 @@ def load_temperature(
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     return response
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
 
 @app.route("/global-temperature/data")
 def response():
