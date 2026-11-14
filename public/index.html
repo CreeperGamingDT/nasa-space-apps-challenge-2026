@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sonora - Nasa Space Apps Challenge 2026</title>
+</head>
+
+<body>
+    <!-- DEBUG -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
+    <!-- END DEBUG -->
+
+    <!-- CONFIG -->
+    <script>
+        const config = {
+            apiUrl: "https://cautious-space-fortnight-vxvw9vxw5jqhjjp-3000.app.github.dev", // Change this to your backend URL
+        };
+    </script>
+    <!-- END CONFIG -->
+    <div id="status">Loading temperature data...</div>
+    <script>
+        function drawTempData(tempData) {
+            const [height, width] = tempData.shape;
+            const pixels = tempData.values.flat();
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            const image = context.createImageData(width, height);
+            const minimum = pixels.reduce((min, value) => Math.min(min, value), Infinity);
+            const maximum = pixels.reduce((max, value) => Math.max(max, value), -Infinity);
+
+            canvas.width = width;
+            canvas.height = height;
+
+            pixels.forEach((value, index) => {
+                const normalized = (value - minimum) / (maximum - minimum);
+                const color = Math.round(normalized * 255);
+                const pixel = index * 4;
+                image.data[pixel] = color;
+                image.data[pixel + 1] = 0;
+                image.data[pixel + 2] = 255 - color;
+                image.data[pixel + 3] = 255;
+            });
+
+            context.putImageData(image, 0, 0);
+            status.textContent = `Loaded ${width} x ${height} temperature values.`;
+            document.body.appendChild(canvas);
+        }
+        async function fetchTempData() {
+            const status = document.getElementById("status");
+
+            return await fetch(new URL("/global-temperature/data", config.apiUrl))
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Backend returned HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .catch(error => {
+                    status.textContent = `Unable to load data: ${error.message}`;
+                    status.style.color = "red";
+                });
+
+
+        }
+        (async () => {
+            const tempData = await fetchTempData();
+            if (tempData) {
+                drawTempData(tempData);
+            }
+        })();
+    </script>
+</body>
+
+</html>
