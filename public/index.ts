@@ -1,13 +1,21 @@
 import { rgb } from "d3-color";
 import { scaleSequential } from "d3-scale";
 import { interpolateTurbo } from "d3-scale-chromatic";
+import { config } from "./config";
 import { fetchTempData } from "./fetch";
+import { ScannerAudio } from "./scanner";
 import type { TempData } from "./types";
 
 const status: HTMLElement | null = document.getElementById("status");
+const scannerToggle = document.getElementById("scanner-toggle") as HTMLButtonElement | null;
+
+let currentData: TempData | null = null;
+let scannerAbort: AbortController | null = null;
+let scannerOverlay: HTMLCanvasElement | null = null;
+let scannerOverlayContext: CanvasRenderingContext2D | null = null;
 
 // Fixed range so images from different dates are directly comparable.
-const TEMP_RANGE: readonly [number, number] = [-45, 35];
+const TEMP_RANGE = config.tempRangeC;
 const LUT_SIZE = 256;
 
 const color = scaleSequential(interpolateTurbo).domain(TEMP_RANGE).clamp(true);
@@ -18,6 +26,27 @@ const colorLut = Array.from({ length: LUT_SIZE }, (_, index): [number, number, n
   const { r, g, b } = rgb(color(value));
   return [r, g, b];
 });
+
+function drawScannerRow(row: number): void {
+  if (!scannerOverlay || !scannerOverlayContext) return;
+
+  const { width, height } = scannerOverlay;
+  scannerOverlayContext.clearRect(0, 0, width, height);
+
+  if (row < 0 || row >= height) return;
+
+  // Data row 0 is south (bottom); canvas y grows downward.
+  const y = height - 1 - row;
+  const thickness = Math.max(1, Math.round(height / 300));
+
+  scannerOverlayContext.fillStyle = "rgba(255, 255, 255, 0.95)";
+  scannerOverlayContext.fillRect(0, y, width, thickness);
+}
+
+function clearScannerRow(): void {
+  if (!scannerOverlay || !scannerOverlayContext) return;
+  scannerOverlayContext.clearRect(0, 0, scannerOverlay.width, scannerOverlay.height);
+}
 
 function drawTempData(tempData: TempData): void {
   const [height, width] = tempData.shape;
@@ -57,18 +86,72 @@ function drawTempData(tempData: TempData): void {
   }
 
   context.putImageData(image, 0, 0);
-  
-  document.body.appendChild(canvas);
+
+  const overlay = document.createElement("canvas");
+  overlay.className = "scanner-overlay";
+  overlay.width = width;
+  overlay.height = height;
+
+  const overlayContext = overlay.getContext("2d");
+  if (!overlayContext) {
+    throw new Error("Unable to create a scanner overlay context.");
+  }
+
+  scannerOverlay = overlay;
+  scannerOverlayContext = overlayContext;
+
+  const map = document.createElement("div");
+  map.className = "map";
+  map.append(canvas, overlay);
+  document.body.appendChild(map);
 
   if (status) {
     status.textContent = `Loaded ${width} x ${height} temperature values.`;
   }
 }
 
+async function toggleScanner(): Promise<void> {
+  if (!currentData) return;
+
+  // Second click stops the running scan.
+  if (scannerAbort) {
+    scannerAbort.abort();
+    return;
+  }
+
+  const controller = new AbortController();
+  scannerAbort = controller;
+
+  if (scannerToggle) {
+    scannerToggle.textContent = "Stop scanner";
+  }
+
+  drawScannerRow(0);
+
+  try {
+    await ScannerAudio(currentData, controller.signal, drawScannerRow);
+  } finally {
+    scannerAbort = null;
+    clearScannerRow();
+    if (scannerToggle) {
+      scannerToggle.textContent = "Play scanner";
+    }
+  }
+}
+
+scannerToggle?.addEventListener("click", () => {
+  void toggleScanner();
+});
+
 (async (): Promise<void> => {
   const tempData = await fetchTempData();
   if (tempData) {
+    currentData = tempData;
     drawTempData(tempData);
+
+    if (scannerToggle) {
+      scannerToggle.disabled = false;
+    }
   } else if (status) {
     status.textContent = "Unable to load temperature data.";
     status.style.color = "red";

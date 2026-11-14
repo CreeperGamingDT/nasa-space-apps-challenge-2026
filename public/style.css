@@ -13,3 +13,36 @@ canvas {
     margin: auto auto;
     object-fit:contain;
 }
+
+.map {
+    position: fixed;
+    inset: 0;
+}
+
+.map canvas {
+    position: absolute;
+    inset: 0;
+}
+
+.scanner-overlay {
+    pointer-events: none;
+}
+
+#status {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 2;
+    margin: 0;
+    padding: 0.25rem 0.5rem;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 0.25rem;
+}
+
+#scanner-toggle {
+    position: fixed;
+    left: 1rem;
+    bottom: 1rem;
+    z-index: 2;
+}
