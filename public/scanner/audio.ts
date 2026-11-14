@@ -1,5 +1,5 @@
 import workletUrl from "./scanner-processor.js?url&no-inline";
-import { config } from "./config";
+import { config } from "../config";
 
 export interface Voice {
   frequency(hz: number): void;

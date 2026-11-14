@@ -1,7 +1,7 @@
 import { initVoices } from "./audio";
-import { config } from "./config";
-import type { TempData } from "./types";
-import { clamp, delay } from "./utils";
+import { config } from "../config";
+import type { TempData } from "../types";
+import { clamp, delay } from "../utils";
 
 const [TEMP_MIN, TEMP_MAX] = config.tempRangeC;
 const [FREQ_MIN_HZ, FREQ_MAX_HZ] = config.audioFreqRangeHz;

@@ -3,7 +3,7 @@ import { scaleSequential } from "d3-scale";
 import { interpolateTurbo } from "d3-scale-chromatic";
 import { config } from "./config";
 import { fetchTempData } from "./fetch";
-import { ScannerAudio } from "./scanner";
+import { ScannerAudio } from "./scanner/scanner";
 import type { TempData } from "./types";
 
 const status: HTMLElement | null = document.getElementById("status");
