@@ -7,13 +7,11 @@ from datetime import datetime, timezone
 
 app = Flask(__name__)
 
-
 def current_hour_utc() -> datetime:
     # current hour in ISO UTC
     return datetime.now(timezone.utc).replace(
         minute=0, second=0, microsecond=0, tzinfo=None
     )
-
 
 def parse_date(value: str) -> datetime:
     # parse ISO date into naive UTC
@@ -22,12 +20,10 @@ def parse_date(value: str) -> datetime:
         parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
     return parsed
 
-
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     return response
-
 
 url = (
     "https://opendap.nccs.nasa.gov/dods/"
@@ -38,7 +34,7 @@ url = (
 ds = xr.open_dataset(url, engine="netcdf4")
 
 @app.route("/global-temperature/data")
-def data_endpoint():
+def response():
     min_lat = request.args.get("min_lat", default=-90, type=float)
     max_lat = request.args.get("max_lat", default=90, type=float)
     min_lon = request.args.get("min_lon", default=-180, type=float)
