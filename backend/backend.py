@@ -16,7 +16,7 @@ URL = (
 
 # The full 721 x 1152 field is slow to pull from OPeNDAP. Step 3 keeps the
 # image detailed enough for the canvas while cutting the transfer by 9x.
-DEFAULT_STEP = 8
+DEFAULT_STEP = 4
 MAX_STEP = 8
 
 # how long until a cached entry expires (technically, the data doesnt get automatically removed after this time, but it will be treated as expired)
