@@ -3,9 +3,24 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 from flask import Flask, request, jsonify
-from datetime import datetime
+from datetime import datetime, timezone
 
 app = Flask(__name__)
+
+
+def current_hour_utc() -> datetime:
+    # current hour in ISO UTC
+    return datetime.now(timezone.utc).replace(
+        minute=0, second=0, microsecond=0, tzinfo=None
+    )
+
+
+def parse_date(value: str) -> datetime:
+    # parse ISO date into naive UTC
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
 
 
 @app.after_request
@@ -28,7 +43,8 @@ def data_endpoint():
     max_lat = request.args.get("max_lat", default=90, type=float)
     min_lon = request.args.get("min_lon", default=-180, type=float)
     max_lon = request.args.get("max_lon", default=180, type=float)
-    date = request.args.get("date", default=datetime.now().isoformat(), type=str)
+    raw_date = request.args.get("date", type=str)
+    date = parse_date(raw_date) if raw_date else current_hour_utc()
 
         # get global temp for 11/13
     temp = (
