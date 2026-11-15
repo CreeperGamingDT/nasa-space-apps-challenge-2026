@@ -19,6 +19,7 @@ const timeReadout = document.getElementById("time-readout");
 
 let currentData: TempData | null = null;
 let scannerAbort: AbortController | null = null;
+let loadingTempData = false;
 
 // Fixed range so images from different dates are directly comparable.
 const TEMP_RANGE = config.tempRangeC;
@@ -221,6 +222,43 @@ function loadSearchResults(list: SearchResults, autofocus: boolean = false): voi
     option.addEventListener("focus", () => {
       speak(result.name);
     });
+    option.addEventListener("keydown", (event) => {
+      if (event.key == "ArrowDown") {
+        event.preventDefault();
+        const nextOption = option.nextElementSibling as HTMLButtonElement | null;
+        if (nextOption) {
+          nextOption.focus();
+        }
+      } else if (event.key == "ArrowUp") {
+        event.preventDefault();
+        const prevOption = option.previousElementSibling as HTMLButtonElement | null;
+        if (prevOption) {
+          prevOption.focus();
+        }
+      }
+
+    if ((event.key.length !== 1 ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey) &&
+        event.key !== "Backspace" &&
+        event.key !== "Delete"
+    ) return; //not printable character
+
+      searchInput.focus()
+
+      searchInput.dispatchEvent(new KeyboardEvent("keydown", {
+        key: event.key,
+        code: event.code,
+        keyCode: event.keyCode,
+        which: event.which,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+        repeat: event.repeat,
+      }));
+    });
 
     searchDropdown.appendChild(option);
   }
@@ -247,12 +285,11 @@ searchInput?.addEventListener("focus", () => {
 });
 
 searchInput?.addEventListener("focus", () => {
-  searchInput?.select();  
   speak("Enter a location to search");
 });
 
 scannerToggle?.addEventListener("click", () => {
-
+  if (loadingTempData) return;
   void toggleScanner();
 });
 
@@ -261,18 +298,19 @@ scannerToggle?.addEventListener("focus", () => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (event.key === "p") {
+  if (event.key === "p" && searchInput !== document.activeElement) {
     void toggleScanner();
   }
   if (event.key === "/") {
     event.preventDefault();
-    searchInput?.focus();
+    searchInput?.select();
   }
 });
 
 async function refreshTempData(min_lat: number, max_lat: number, min_lon: number, max_lon: number, date: string, downscale: number, narratorEnabled: boolean = true): Promise<void> {
+  scannerAbort?.abort();
   if (narratorEnabled) speak("Loading " + searchInput?.value.trim() + " temperature map");
-  console.log(`Fetching temperature data for lat: ${min_lat} to ${max_lat}, lon: ${min_lon} to ${max_lon}, date: ${date}, downscale: ${downscale}`);
+  loadingTempData = true;
   clearCanvas();
   const tempData = await fetchTempData(min_lat, max_lat, min_lon, max_lon, date, downscale);
 
@@ -291,5 +329,6 @@ async function refreshTempData(min_lat: number, max_lat: number, min_lon: number
   } else {
     if (narratorEnabled) speak("Error while loading temperature map");
   }
+  loadingTempData = false;
 }
 refreshTempData(-90, 90, -180, 180, currentHourUTC().toISOString(),3, false);
