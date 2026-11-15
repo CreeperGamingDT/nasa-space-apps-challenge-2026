@@ -94,7 +94,7 @@ buildLegend();
 
 function updateTimeReadout(date: string): void {
   if (!timeReadout) return;
-  timeReadout.textContent = `${date.slice(0, 16).replace("T", " ")} UTC`;
+  timeReadout.textContent = new Date(date).toLocaleString();
 }
 
 function drawTempData(tempData: TempData): void {
