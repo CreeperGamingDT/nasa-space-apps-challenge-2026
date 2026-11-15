@@ -48,7 +48,6 @@ function drawScannerRow(row: number): void {
 
   // draw dots on the line to indicate where each sample is being played
   if (!currentData) return;
-  const [dataHeight, dataWidth] = currentData.shape;
   const samples = config.scanner.samples;
   const lastIndex = samples - 1;
 
@@ -222,7 +221,7 @@ function loadSearchResults(list: SearchResults): void {
   searchDropdown.hidden = false;
 }
 let searchInputTimeout: number | null = null;
-searchInput?.addEventListener("input", (e) => {
+searchInput?.addEventListener("input", () => {
   if (searchInputTimeout) {
     clearTimeout(searchInputTimeout);
   }
