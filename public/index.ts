@@ -48,19 +48,6 @@ function drawScannerRow(row: number): void {
 
   scannerOverlayContext.fillStyle = "rgba(255, 255, 255, 0.95)";
   scannerOverlayContext.fillRect(0, y, width, thickness);
-
-  // draw dots on the line to indicate where each sample is being played
-  if (!currentData) return;
-  const samples = config.scanner.samples;
-  const lastIndex = samples - 1;
-
-  for (let i = 0; i < samples; i++) {
-    const x = (i / lastIndex) * width;
-    scannerOverlayContext.fillStyle = "rgba(255, 0, 0, 0.8)";
-    scannerOverlayContext.beginPath();
-    scannerOverlayContext.arc(x, y, 1, 0, Math.PI * 2);
-    scannerOverlayContext.fill();
-  }
 }
 
 function clearScannerRow(): void {
