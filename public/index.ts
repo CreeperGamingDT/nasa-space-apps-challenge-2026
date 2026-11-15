@@ -7,16 +7,17 @@ import { ScannerAudio } from "./scanner/scanner";
 import type { SearchResults, TempData } from "./types";
 import { searchArea } from "./area-search/search";
 
-const status: HTMLElement | null = document.getElementById("status");
 const scannerToggle = document.getElementById("scanner-toggle") as HTMLButtonElement | null;
 const searchInput = document.getElementById("search") as HTMLInputElement | null;
 const searchDropdown = document.getElementById("search-dropdown") as HTMLDivElement | null;
 const canvas = document.getElementById("map-canvas") as HTMLCanvasElement | null;
+const scannerOverlay = document.getElementById("scanner-overlay") as HTMLCanvasElement | null;
+const scannerOverlayContext = scannerOverlay?.getContext("2d") ?? null;
+const legendGradient = document.getElementById("legend-gradient") as HTMLDivElement | null;
+const timeReadout = document.getElementById("time-readout");
 
 let currentData: TempData | null = null;
 let scannerAbort: AbortController | null = null;
-let scannerOverlay: HTMLCanvasElement | null = null;
-let scannerOverlayContext: CanvasRenderingContext2D | null = null;
 
 // Fixed range so images from different dates are directly comparable.
 const TEMP_RANGE = config.tempRangeC;
@@ -74,14 +75,39 @@ function clearCanvas(): void {
   context.clearRect(0, 0, canvas.width, canvas.height);
 }
 
+// Build the legend gradient from the same LUT the map uses, so the scale
+// bar exactly matches the rendered colors.
+function buildLegend(): void {
+  if (!legendGradient) return;
+  const stops: string[] = [];
+  const steps = 16;
+  for (let i = 0; i <= steps; i++) {
+    const index = Math.round((i / steps) * (LUT_SIZE - 1));
+    const [r, g, b] = colorLut[index];
+    stops.push(`rgb(${r}, ${g}, ${b}) ${((i / steps) * 100).toFixed(1)}%`);
+  }
+  legendGradient.style.background = `linear-gradient(90deg, ${stops.join(", ")})`;
+}
+buildLegend();
+
+function updateTimeReadout(date: string): void {
+  if (!timeReadout) return;
+  timeReadout.textContent = `${date.slice(0, 16).replace("T", " ")} UTC`;
+}
+
 function drawTempData(tempData: TempData): void {
   if (!canvas) {
     throw new Error("Canvas element not found.");
+  }
+  if (!scannerOverlay || !scannerOverlayContext) {
+    throw new Error("Scanner overlay element not found.");
   }
   const [height, width] = tempData.shape;
 
   canvas.width = width;
   canvas.height = height;
+  scannerOverlay.width = width;
+  scannerOverlay.height = height;
 
   const context = canvas.getContext("2d");
   if (!context) {
@@ -114,28 +140,7 @@ function drawTempData(tempData: TempData): void {
   }
 
   context.putImageData(image, 0, 0);
-
-  const overlay = document.createElement("canvas");
-  overlay.className = "scanner-overlay";
-  overlay.width = width;
-  overlay.height = height;
-
-  const overlayContext = overlay.getContext("2d");
-  if (!overlayContext) {
-    throw new Error("Unable to create a scanner overlay context.");
-  }
-
-  scannerOverlay = overlay;
-  scannerOverlayContext = overlayContext;
-
-  const map = document.createElement("div");
-  map.className = "map";
-  map.append(canvas, overlay);
-  document.body.appendChild(map);
-
-  if (status) {
-    status.textContent = `Loaded ${width} x ${height} temperature values.`;
-  }
+  scannerOverlayContext.clearRect(0, 0, width, height);
 }
 
 async function toggleScanner(): Promise<void> {
@@ -241,13 +246,11 @@ async function refreshTempData(min_lat: number, max_lat: number, min_lon: number
   if (tempData) {
     currentData = tempData;
     drawTempData(tempData);
+    updateTimeReadout(date);
 
     if (scannerToggle) {
       scannerToggle.disabled = false;
     }
-  } else if (status) {
-    status.textContent = "Unable to load temperature data.";
-    status.style.color = "red";
   }
 }
-refreshTempData(-90, 90, -180, 180, currentHourUTC().toISOString(),4);
+refreshTempData(-90, 90, -180, 180, currentHourUTC().toISOString(),3);

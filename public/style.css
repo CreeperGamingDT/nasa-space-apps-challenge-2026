@@ -1,78 +1,155 @@
+:root {
+    --bg: #070b10;
+    --panel: #0e141c;
+    --panel-raised: #131b26;
+    --border: #223041;
+    --border-soft: #18232f;
+    --text: #d7e2ee;
+    --text-dim: #7d8ea0;
+    --text-faint: #55697c;
+    --accent: #4fc3f7;
+    --accent-dim: #1c5f86;
+    --font-ui: monospace, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
 body {
-    margin:0;
-    padding:0;
-    width:100vw;
-    height:100vh;
-}
-
-canvas {
-    width:100%;
-    height:100%;
-    /*center*/
-    display: block;
-    margin: auto auto;
-    object-fit:contain;
-}
-
-.map {
-    position: fixed;
-    inset: 0;
-}
-
-.map canvas {
-    position: absolute;
-    inset: 0;
-}
-
-.scanner-overlay {
-    pointer-events: none;
-}
-
-#status {
-    position: fixed;
-    top: 0.75rem;
-    left: 0.75rem;
-    z-index: 2;
     margin: 0;
-    padding: 0.25rem 0.5rem;
-    color: #fff;
-    background: rgba(0, 0, 0, 0.45);
-    border-radius: 0.25rem;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
 }
 
-#scanner-toggle {
-    position: fixed;
-    left: 1rem;
-    bottom: 1rem;
-    z-index: 2;
+body {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+}
+
+/* ---------- Masthead ---------- */
+
+.masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 1.1rem 0.5rem;
+    background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+    border-bottom: 1px solid var(--border);
+}
+
+.brand {
+    display: flex;
+    align-items: baseline;
+    gap: 0.9rem;
+    min-width: 0;
+}
+
+.brand-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.35em;
+    color: var(--accent);
+}
+
+.brand-meta {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-faint);
+    white-space: nowrap;
+}
+
+/* ---------- Toolbar ---------- */
+
+.toolbar {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 0;
+    padding: 0 1.1rem;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+}
+
+.toolbar-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.9rem;
+    border-right: 1px solid var(--border-soft);
+    min-height: 2.9rem;
+}
+
+.cell-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+}
+
+.cell-value {
+    font-size: 0.85rem;
+    color: var(--text);
+}
+
+.mono {
+    font-family: var(--font-mono);
+}
+
+.search-cell {
+    position: relative;
+    flex: 1 1 16rem;
+    max-width: 26rem;
 }
 
 #search {
-    position: fixed;
-    top: 1rem;
-    left: 0;
-    right: 0;
-    margin-inline: auto;
-    width: fit-content;
-    z-index: 2;
-    padding: 0.25rem 0.5rem;
+    width: 100%;
+    padding: 0.35rem 0.6rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: var(--font-ui);
 }
-#search-dropdown {
-    position: fixed;
-    top: 3.25rem;
-    left: 0;
-    right: 0;
-    margin-inline: auto;
 
-    width: max(15rem, 20rem);
-    max-width: calc(100vw - 2rem);
+#search::placeholder {
+    color: var(--text-faint);
+}
+
+#search:focus {
+    outline: none;
+    border-color: var(--accent-dim);
+    box-shadow: 0 0 0 1px var(--accent-dim);
+}
+
+#search-dropdown {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0.9rem;
+    width: max(15rem, 100%);
+    max-width: min(100%, 24rem);
     max-height: 16rem;
     overflow-y: auto;
+    z-index: 10;
 
-    z-index: 3;
-    background: #181818;
-    border: 1px solid #444;
-    border-radius: 0.5rem;
+    background: var(--panel-raised);
+    border: 1px solid var(--border);
+    border-radius: 0.35rem;
+    box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.55);
     padding: 0.25rem;
 
     display: flex;
@@ -85,17 +162,129 @@ canvas {
 
 .search-option {
     width: 100%;
-    padding: 0.65rem 0.75rem;
+    padding: 0.55rem 0.7rem;
 
     border: none;
     border-radius: 0.25rem;
     background: transparent;
-    color: white;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: var(--font-ui);
 
     text-align: left;
     cursor: pointer;
 }
 
-.search-option:hover {
-    background: #333;
+.search-option:hover,
+.search-option:focus-visible {
+    background: var(--accent-dim);
+    color: #fff;
+    outline: none;
+}
+
+.toolbar-button {
+    margin: 0.4rem 0;
+    padding: 0.4rem 1rem;
+    align-self: center;
+
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    border-radius: 0.25rem;
+    color: #eaf6ff;
+    font-size: 0.8rem;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.toolbar-button:hover:not(:disabled) {
+    background: var(--accent);
+    color: #04222f;
+}
+
+.toolbar-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ---------- Legend ---------- */
+
+.legend-scale {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-left: auto;
+    padding-left: 0.9rem;
+}
+
+.legend-gradient {
+    width: clamp(12rem, 30vw, 26rem);
+    height: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 0.15rem;
+}
+
+.legend-bound {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+}
+
+/* ---------- Viewer ---------- */
+
+.viewer {
+    position: relative;
+    min-height: 0;
+    padding: 0.75rem;
+    background:
+        radial-gradient(ellipse at 50% 40%, rgba(79, 195, 247, 0.04), transparent 60%),
+        var(--bg);
+}
+
+.map {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Both canvases letterbox with object-fit: contain so the scanner
+   overlay stays aligned with the map at any viewport aspect ratio. */
+#map-canvas,
+.scanner-overlay {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+#map-canvas {
+    image-rendering: pixelated;
+    border: 1px solid var(--border);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0.75rem 2rem rgba(0, 0, 0, 0.5);
+    background: var(--bg);
+}
+
+.scanner-overlay {
+    pointer-events: none;
+}
+
+/* ---------- Narrow screens ---------- */
+
+@media (max-width: 48rem) {
+    .masthead {
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+
+    .search-cell {
+        flex-basis: 100%;
+        max-width: none;
+        border-right: none;
+    }
 }
