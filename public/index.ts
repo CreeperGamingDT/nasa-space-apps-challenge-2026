@@ -2,12 +2,16 @@ import { rgb } from "d3-color";
 import { scaleSequential } from "d3-scale";
 import { interpolateTurbo } from "d3-scale-chromatic";
 import { config } from "./config";
-import { fetchTempData } from "./fetch";
+import { currentHourUTC, fetchTempData } from "./fetch";
 import { ScannerAudio } from "./scanner/scanner";
-import type { TempData } from "./types";
+import type { SearchResults, TempData } from "./types";
+import { searchArea } from "./area-search/search";
 
 const status: HTMLElement | null = document.getElementById("status");
 const scannerToggle = document.getElementById("scanner-toggle") as HTMLButtonElement | null;
+const searchInput = document.getElementById("search") as HTMLInputElement | null;
+const searchDropdown = document.getElementById("search-dropdown") as HTMLDivElement | null;
+const canvas = document.getElementById("map-canvas") as HTMLCanvasElement | null;
 
 let currentData: TempData | null = null;
 let scannerAbort: AbortController | null = null;
@@ -48,10 +52,21 @@ function clearScannerRow(): void {
   scannerOverlayContext.clearRect(0, 0, scannerOverlay.width, scannerOverlay.height);
 }
 
+function clearCanvas(): void {
+  if (!canvas) return;
+  
+  const context = canvas.getContext("2d");
+  if (!context) return;
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+}
+
 function drawTempData(tempData: TempData): void {
+  if (!canvas) {
+    throw new Error("Canvas element not found.");
+  }
   const [height, width] = tempData.shape;
 
-  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
 
@@ -143,8 +158,73 @@ scannerToggle?.addEventListener("click", () => {
   void toggleScanner();
 });
 
-(async (): Promise<void> => {
-  const tempData = await fetchTempData();
+async function findSearchResults(query: string): Promise<void> {
+  if (!query) return
+  const results = await searchArea(query);
+    if (!results) {
+      if (searchDropdown) {
+        searchDropdown.hidden = true;
+      }
+      return;
+    }
+    console.log(results)
+    loadSearchResults(results);
+}
+
+// populate and display search results
+function loadSearchResults(list: SearchResults): void {
+  if (!searchDropdown || !searchInput) return;
+  searchDropdown.replaceChildren();
+  
+  if (document.activeElement !== searchInput || list.length === 0) {
+    searchDropdown.hidden = true;
+    return;
+  }
+  
+  for (const result of list) {
+    const option = document.createElement("button");
+    
+    option.type = "button";
+    option.className = "search-option";
+    option.textContent = result.name;
+    
+    option.addEventListener("click", () => {
+      searchInput.value = result.name;
+      searchDropdown.hidden = true;
+      
+      refreshTempData(
+        result.bbox[1],
+        result.bbox[3],
+        result.bbox[0],
+        result.bbox[2],
+        currentHourUTC().toISOString(),
+        1
+      );
+    });
+    
+    searchDropdown.appendChild(option);
+  }
+  
+  searchDropdown.hidden = false;
+}
+let searchInputTimeout: number | null = null;
+searchInput?.addEventListener("input", (e) => {
+  if (searchInputTimeout) {
+    clearTimeout(searchInputTimeout);
+  }
+  if (!searchInput.value.trim()) return;
+  searchInputTimeout = window.setTimeout(async () => {
+    findSearchResults(searchInput.value.trim());
+  }, config.search.timeoutDelayMs);
+})
+searchInput?.addEventListener("focus", () => {
+  findSearchResults(searchInput.value.trim());
+});
+
+async function refreshTempData(min_lat: number, max_lat: number, min_lon: number, max_lon: number, date: string, downscale: number): Promise<void> {
+  console.log(`Fetching temperature data for lat: ${min_lat} to ${max_lat}, lon: ${min_lon} to ${max_lon}, date: ${date}, downscale: ${downscale}`);
+  clearCanvas();
+  const tempData = await fetchTempData(min_lat, max_lat, min_lon, max_lon, date, downscale);
   if (tempData) {
     currentData = tempData;
     drawTempData(tempData);
@@ -156,4 +236,5 @@ scannerToggle?.addEventListener("click", () => {
     status.textContent = "Unable to load temperature data.";
     status.style.color = "red";
   }
-})();
+}
+refreshTempData(-90, 90, -180, 180, currentHourUTC().toISOString(),4);

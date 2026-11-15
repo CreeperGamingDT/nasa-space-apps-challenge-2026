@@ -1,19 +1,19 @@
 import { TempData } from "./types";
 import { config } from "./config";
 
-function currentHourUTC(): Date {
+export function currentHourUTC(): Date {
   const now = new Date();
   now.setUTCMinutes(0, 0, 0);
   return now;
 }
 
-export async function fetchTempData(min_lat: number = -90, max_lat: number = 90, min_lon: number = -180, max_lon: number = 180, date: string = currentHourUTC().toISOString()): Promise<TempData | undefined> {
+export async function fetchTempData(min_lat: number = -90, max_lat: number = 90, min_lon: number = -180, max_lon: number = 180, date: string = currentHourUTC().toISOString(), downscale: number = 2): Promise<TempData | undefined> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 90_000);
 
   try {
     const response = await fetch(
-      new URL(`/global-temperature/data?min_lat=${min_lat}&max_lat=${max_lat}&min_lon=${min_lon}&max_lon=${max_lon}&date=${date}`, config.apiUrl),
+      new URL(`/global-temperature/data?min_lat=${min_lat}&max_lat=${max_lat}&min_lon=${min_lon}&max_lon=${max_lon}&date=${date}&step=${downscale}`, config.apiUrl),
       { signal: controller.signal },
     );
     if (!response.ok) {

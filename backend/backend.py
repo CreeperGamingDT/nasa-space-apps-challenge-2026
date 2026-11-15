@@ -1,10 +1,14 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 from time import monotonic
 
+import numpy as np
+
 import xarray as xr
 from flask import Flask, jsonify, request
+
+import requests
 
 app = Flask(__name__)
 
@@ -13,10 +17,11 @@ URL = (
     "GEOS-5/fp/0.25_deg/fcast/"
     "tavg1_2d_slv_Nx.latest"
 )
+SEARCH_URL = "https://api.mapbox.com/search/geocode/v6/forward?"
 
 # The full 721 x 1152 field is slow to pull from OPeNDAP. Step 3 keeps the
 # image detailed enough for the canvas while cutting the transfer by 9x.
-DEFAULT_STEP = 4
+DEFAULT_STEP = 2
 MAX_STEP = 8
 
 # how long until a cached entry expires (technically, the data doesnt get automatically removed after this time, but it will be treated as expired)
@@ -85,7 +90,34 @@ def load_temperature(
     # Open per request so a long-running server always sees the latest file.
     # Serialize access because netCDF4/HDF5 cannot handle concurrent remote reads.
     with _dataset_lock:
-        with xr.open_dataset(URL, engine="netcdf4") as ds:
+        # The OPeNDAP server reports time as "days since 1-1-1", which neither
+        # pandas (int64 nanosecond overflow) nor cftime (exactness overflow) can
+        # decode. So read the raw values and convert them ourselves.
+        with xr.open_dataset(URL, engine="netcdf4", decode_times=False) as ds:
+            # DODS sometimes returns fill values (e.g. 9.969e36) in the time
+            # array. Drop those time steps with isel so every variable on the
+            # time dimension stays consistent, then decode what remains.
+            epoch = datetime(1, 1, 1, tzinfo=timezone.utc)
+            mask = [0 <= float(t) < 3.7e6 for t in ds["time"].values]
+            ds = ds.isel(time=mask)
+            decoded_time = [epoch + timedelta(days=float(t)) for t in ds["time"].values]
+            ds = ds.assign_coords(time=("time", decoded_time))
+
+            # A mid-refresh read of the ".latest" file can return out-of-order
+            # or duplicated time steps; selection requires a monotonic index.
+            tvals = ds["time"].values
+            if tvals.size > 1 and not all(tvals[i] < tvals[i + 1] for i in range(tvals.size - 1)):
+                ds = ds.sortby("time")
+            if ds["lat"].values.size > 1 and ds["lat"].values[1] < ds["lat"].values[0]:
+                ds = ds.sortby("lat")
+            if ds["lon"].values.size > 1 and ds["lon"].values[1] < ds["lon"].values[0]:
+                ds = ds.sortby("lon")
+
+            # pandas cannot compare tz-naive and tz-aware timestamps, so treat a
+            # naive requested date as UTC, matching the decoded time coordinate.
+            if date.tzinfo is None:
+                date = date.replace(tzinfo=timezone.utc)
+
             temp = (
                 ds["t2m"]
                 .sel(time=date, method="nearest")
@@ -117,6 +149,55 @@ def add_cors_headers(response):
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
+
+@app.route("/geocode/search")
+def geocode():
+    query = request.args.get("q")
+
+    if not query:
+        return jsonify({"error": "Missing query parameter"}), 400
+
+    params = {
+        "access_token": os.environ.get("MAPBOX_ACCESS_TOKEN") or "pk.eyJ1IjoiY3JlZXBlcmdhbWluZ2R0IiwiYSI6ImNtd2gzOHk1cDAzYTEzMHB6cm15d3ppNHMifQ.jrZjG5gelqEVYiPnfmDxJA", #some of you may be like "OH NO HES USING A PRIVATE API KEY IN PUBLIC" but this is actually just a public key that is rate limited and can be used by anyone
+        "limit": 5,
+        "types": "country,region",
+        "q": query,
+    }
+
+    try:
+        response = requests.get(
+            SEARCH_URL,
+            params=params,
+            timeout=10
+        )
+        response.raise_for_status()
+        results = response.json()
+        print(results)
+
+        if not results:
+            return jsonify([])
+
+        formatted_results = []
+
+        for result in results["features"]:
+            properties = result["properties"]
+            print(properties)
+            print(properties["bbox"])
+
+            bbox = properties["bbox"]
+            if not bbox:
+                break
+
+            formatted_results.append({
+                "name": properties["name_preferred"] or properties["name"] or properties["full_address"],
+                "bbox": bbox,
+            })
+
+        return jsonify(formatted_results)
+
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 502
+
 
 @app.route("/global-temperature/data")
 def response():
