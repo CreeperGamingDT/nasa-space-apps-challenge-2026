@@ -6,6 +6,7 @@ import { currentHourUTC, fetchTempData } from "./fetch";
 import { ScannerAudio } from "./scanner/scanner";
 import type { SearchResults, TempData } from "./types";
 import { searchArea } from "./area-search/search";
+import { speak } from "./narrator/narrator";
 
 const scannerToggle = document.getElementById("scanner-toggle") as HTMLButtonElement | null;
 const searchInput = document.getElementById("search") as HTMLInputElement | null;
@@ -162,6 +163,7 @@ async function toggleScanner(): Promise<void> {
   drawScannerRow(0);
 
   try {
+    speak("Playing "+ (searchInput?.value.trim() !== "" ? searchInput?.value.trim() : "global") + " temperature map");
     await ScannerAudio(currentData, controller.signal, drawScannerRow);
   } finally {
     scannerAbort = null;
@@ -172,11 +174,9 @@ async function toggleScanner(): Promise<void> {
   }
 }
 
-scannerToggle?.addEventListener("click", () => {
-  void toggleScanner();
-});
 
-async function findSearchResults(query: string): Promise<void> {
+
+async function findSearchResults(query: string, autofocus: boolean = false): Promise<void> {
   if (!query) return
   const results = await searchArea(query);
     if (!results) {
@@ -185,12 +185,11 @@ async function findSearchResults(query: string): Promise<void> {
       }
       return;
     }
-    console.log(results)
-    loadSearchResults(results);
+    loadSearchResults(results, autofocus);
 }
 
 // populate and display search results
-function loadSearchResults(list: SearchResults): void {
+function loadSearchResults(list: SearchResults, autofocus: boolean = false): void {
   if (!searchDropdown || !searchInput) return;
   searchDropdown.replaceChildren();
   
@@ -219,11 +218,19 @@ function loadSearchResults(list: SearchResults): void {
         1
       );
     });
-    
+    option.addEventListener("focus", () => {
+      speak(result.name);
+    });
+
     searchDropdown.appendChild(option);
   }
   
   searchDropdown.hidden = false;
+
+  if (autofocus) {
+    const firstOption = searchDropdown.querySelector(".search-option") as HTMLButtonElement | null;
+    firstOption?.focus();
+  }
 }
 let searchInputTimeout: number | null = null;
 searchInput?.addEventListener("input", () => {
@@ -232,18 +239,48 @@ searchInput?.addEventListener("input", () => {
   }
   if (!searchInput.value.trim()) return;
   searchInputTimeout = window.setTimeout(async () => {
-    findSearchResults(searchInput.value.trim());
+    findSearchResults(searchInput.value.trim(), true);
   }, config.search.timeoutDelayMs);
 })
 searchInput?.addEventListener("focus", () => {
   findSearchResults(searchInput.value.trim());
 });
 
-async function refreshTempData(min_lat: number, max_lat: number, min_lon: number, max_lon: number, date: string, downscale: number): Promise<void> {
+searchInput?.addEventListener("focus", () => {
+  searchInput?.select();  
+  speak("Enter a location to search");
+});
+
+scannerToggle?.addEventListener("click", () => {
+
+  void toggleScanner();
+});
+
+scannerToggle?.addEventListener("focus", () => {
+  speak("Play scanner");
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "p") {
+    void toggleScanner();
+  }
+  if (event.key === "/") {
+    event.preventDefault();
+    searchInput?.focus();
+  }
+});
+
+async function refreshTempData(min_lat: number, max_lat: number, min_lon: number, max_lon: number, date: string, downscale: number, narratorEnabled: boolean = true): Promise<void> {
+  if (narratorEnabled) speak("Loading " + searchInput?.value.trim() + " temperature map");
   console.log(`Fetching temperature data for lat: ${min_lat} to ${max_lat}, lon: ${min_lon} to ${max_lon}, date: ${date}, downscale: ${downscale}`);
   clearCanvas();
   const tempData = await fetchTempData(min_lat, max_lat, min_lon, max_lon, date, downscale);
+
   if (tempData) {
+    if (narratorEnabled) {
+      speak("Temperature map loaded");
+      speak("Press p to play the scanner");
+    }
     currentData = tempData;
     drawTempData(tempData);
     updateTimeReadout(date);
@@ -251,6 +288,8 @@ async function refreshTempData(min_lat: number, max_lat: number, min_lon: number
     if (scannerToggle) {
       scannerToggle.disabled = false;
     }
+  } else {
+    if (narratorEnabled) speak("Error while loading temperature map");
   }
 }
-refreshTempData(-90, 90, -180, 180, currentHourUTC().toISOString(),3);
+refreshTempData(-90, 90, -180, 180, currentHourUTC().toISOString(),3, false);

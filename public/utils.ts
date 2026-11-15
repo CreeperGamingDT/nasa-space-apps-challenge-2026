@@ -18,3 +18,14 @@ export function delay(ms: number, signal?: AbortSignal): Promise<void> {
     signal?.addEventListener("abort", done, { once: true });
   });
 }
+export async function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    setTimeout(() => {
+      resolve();
+    }, ms);
+  });
+}
